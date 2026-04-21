@@ -2,7 +2,7 @@
 
 > Expose a reusable workflow's own ref, SHA, repo, and path via the OIDC token — no inputs from the caller, no ref duplication.
 
-When you build a reusable workflow, the workflow itself cannot see which ref it was invoked at. The caller knows, but inside the reusable workflow `github.ref` refers to the **caller**, not to you. Workarounds force users to pass the ref as an input — duplicating information that the platform already has.
+When you build a reusable workflow, the workflow itself cannot see which ref it was invoked at. The caller knows, but inside the reusable workflow `github.ref` refers to the **caller**, not to you. Workarounds force users to pass the ref as an input — duplicating information that the platform already has via hardcoded ref from the reusable workflow `uses:`.
 
 This action reads the job's OIDC token and extracts the authoritative `job_workflow_ref` / `job_workflow_sha` claims, parsing them into clean, directly-usable outputs. No inputs from the caller. No ref drift.
 
@@ -10,6 +10,104 @@ This action reads the job's OIDC token and extracts the authoritative `job_workf
 - **Linux** / **macOS** / **Windows**, github-hosted or self-hosted, containerized jobs OK
 - Zero network calls — the OIDC token is fetched by the runner itself
 - No Octokit, no JWT verification library, no shell-outs
+
+## Without vs. with this action
+
+<table>
+<tr>
+<th width="50%">❌ Without this action</th>
+<th width="50%">✅ With this action</th>
+</tr>
+
+<!-- Row 1: Caller workflow -->
+<tr>
+<td><b>Caller workflow — must pass the ref explicitly</b></td>
+<td><b>Caller workflow — nothing extra needed</b></td>
+</tr>
+<tr>
+<td>
+
+```yaml
+# caller.yml
+jobs:
+  call:
+    uses: my-org/shared/.github/workflows/reusable.yml@v2.5
+    with:
+      workflow_ref: v2.5   # ← manual, must be the same as hardcoded in "uses"
+      <other-real-input-params>
+```
+
+</td>
+<td>
+
+```yaml
+# caller.yml
+jobs:
+  call:
+    uses: my-org/shared/.github/workflows/reusable.yml@v2.5
+    # no workflow_ref input needed
+    <real-input-params>
+
+
+```
+
+</td>
+</tr>
+
+<!-- Row 2: Inside the reusable workflow -->
+<tr>
+<td><b>Inside the reusable workflow — reads caller-supplied input</b></td>
+<td><b>Inside the reusable workflow — reads from OIDC token</b></td>
+</tr>
+<tr>
+<td>
+
+```yaml
+# reusable.yml
+on:
+  workflow_call:
+    inputs:
+      workflow_ref:        # ← must declare
+        type: string
+        ...
+      <real-input-params>
+
+jobs:
+  work:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: ${{ inputs.workflow_ref }}   
+```
+
+</td>
+<td>
+
+```yaml
+# reusable.yml
+on:
+  workflow_call:           # no extra inputs
+
+permissions:
+  id-token: write
+  contents: read # <- needed permissions
+
+jobs:
+  work:
+    runs-on: ubuntu-latest
+    steps:
+      - id: ctx
+        uses: ilyaka-gmx/reusable-workflow-context@v1
+
+      - uses: actions/checkout@v4
+        with:
+          ref: ${{ steps.ctx.outputs.workflow_ref }}  # ← authoritative
+```
+
+</td>
+</tr>
+</table>
 
 ## Quick start (GitHub.com / GHEC)
 
@@ -37,9 +135,9 @@ jobs:
           path: _reusable
 ```
 
-## Quick start (GitHub Enterprise Server with Node 20 Runner)
+## Quick start (GitHub Enterprise Server with Node 20 runner)
 
-GHES still bundles older runners that do not support Node 24. Pin to the `-node20` track:
+For GHES with self-hosted runners that do not support Node 24. Pin to the `-node20` track:
 
 ```yaml
 - uses: ilyaka-gmx/reusable-workflow-context@v1-node20
@@ -51,26 +149,22 @@ Everything else is identical. Once your GHES upgrade supports Node 24, you can s
 
 All outputs are strings. An empty string means "not available" (e.g. `workflow_sha` when the `job_workflow_sha` claim is absent).
 
-
-| Output                      | Example                                                    | Description                                        |
-| --------------------------- | ---------------------------------------------------------- | -------------------------------------------------- |
-| `workflow_ref`              | `v2.4.0`                                                   | Short ref: `refs/tags/` and `refs/heads/` stripped |
-| `workflow_full_ref`         | `refs/tags/v2.4.0`                                         | Raw ref including any `refs/…` prefix              |
-| `workflow_ref_type`         | `tag`                                                      | One of `tag`, `branch`, `sha`                      |
-| `workflow_sha`              | `deadbeef…`                                                | Commit SHA of the reusable workflow file           |
-| `workflow_repository`       | `my-org/my-repo`                                           | Full `owner/repo`                                  |
-| `workflow_repository_owner` | `my-org`                                                   | Owner only                                         |
-| `workflow_path`             | `.github/workflows/ci.yml`                                 | Workflow file path                                 |
+| Output                      | Example                                                     | Description                                        |
+| --------------------------- | ----------------------------------------------------------- | -------------------------------------------------- |
+| `workflow_ref`              | `v2.4.0`                                                    | Short ref: `refs/tags/` and `refs/heads/` stripped |
+| `workflow_full_ref`         | `refs/tags/v2.4.0`                                          | Raw ref including any `refs/…` prefix              |
+| `workflow_ref_type`         | `tag`                                                       | One of `tag`, `branch`, `sha`                      |
+| `workflow_sha`              | `deadbeef…`                                                 | Commit SHA of the reusable workflow file           |
+| `workflow_repository`       | `my-org/my-repo`                                            | Full `owner/repo`                                  |
+| `workflow_repository_owner` | `my-org`                                                    | Owner only                                         |
+| `workflow_path`             | `.github/workflows/ci.yml`                                  | Workflow file path                                 |
 | `job_workflow_ref`          | `my-org/my-repo/.github/workflows/ci.yml@refs/tags/v2.4.0` | Raw OIDC claim                                     |
 
-
 ## Inputs
-
 
 | Input      | Type   | Default | Description                                                                                                 |
 | ---------- | ------ | ------- | ----------------------------------------------------------------------------------------------------------- |
 | `audience` | string | `''`    | Custom audience (`aud` claim) for the OIDC token request. Leave blank to use the runner's default audience. |
-
 
 **When do you need `audience`?** Almost never. The default audience (the GitHub host URL) is what downstream trust policies — cloud providers, Vault, signing services — normally expect. Override it only when the verifier at the other end requires a specific `aud` value (e.g. a cloud OIDC trust policy that pins `aud` to a tenant-specific string).
 
@@ -121,18 +215,17 @@ Example — passing a custom audience:
     path: _reusable
 ```
 
-More examples under `[docs/examples/](docs/examples/)`.
+More examples in [docs/examples/](docs/examples/).
 
 ## Requirements & caveats
 
 - **Must be called from inside a reusable workflow** (one triggered by `workflow_call`). Called from a regular workflow, the action fails fast with a clear message.
-- `**permissions: id-token: write`** at the workflow or job level is required.
-- **Cross-org reusable workflows** need `id-token: write` at the caller level too (GitHub enforces this).
+- **`permissions: id-token: write`** at the workflow or job level is required.
 - **Supported platforms:** GitHub.com, GitHub Enterprise Cloud (GHEC), GitHub Enterprise Server **3.5 or later** (OIDC with `job_workflow_ref` requires GHES 3.5+).
 - **Supported runners:** Linux / macOS / Windows; github-hosted or self-hosted; jobs in containers are fine.
 - **GHES users:** pin `@v1-node20` until your GHES runners support Node 24.
 
-## Security
+## Security Safe
 
 This action:
 
