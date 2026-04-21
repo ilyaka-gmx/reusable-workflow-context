@@ -21,7 +21,7 @@ jobs:
     steps:
       - name: Guard — main-node20 branch exists
         id: branch-check
-        uses: actions/github-script@v7
+        uses: actions/github-script@v9
         with:
           script: |
             try {
@@ -42,7 +42,7 @@ jobs:
 
       - name: Guard — no open sync-conflict issues
         if: steps.branch-check.outputs.exists == 'true'
-        uses: actions/github-script@v7
+        uses: actions/github-script@v9
         with:
           script: |
             const { data: issues } = await github.rest.issues.listForRepo({
@@ -94,7 +94,7 @@ jobs:
 
       - name: Open conflict issue if cherry-pick failed
         if: steps.branch-check.outputs.exists == 'true' && steps.cherry.outcome == 'failure'
-        uses: actions/github-script@v7
+        uses: actions/github-script@v9
         with:
           script: |
             const { execSync } = require('node:child_process');
