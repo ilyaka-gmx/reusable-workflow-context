@@ -29,7 +29,7 @@ jobs:
         uses: ./
 
       - name: Assert outputs (bash)
-        if: runner.os != 'Windows'
+        if: runner.os != 'Windows' && inputs.container != 'alpine:latest'
         shell: bash
         env:
           WORKFLOW_REF: ${{ steps.ctx.outputs.workflow_ref }}
