@@ -19,7 +19,29 @@ jobs:
     runs-on: ubuntu-latest
     timeout-minutes: 10
     steps:
+      - name: Guard — main-node20 branch exists
+        id: branch-check
+        uses: actions/github-script@v7
+        with:
+          script: |
+            try {
+              await github.rest.repos.getBranch({
+                owner: context.repo.owner,
+                repo: context.repo.repo,
+                branch: 'main-node20',
+              });
+              core.setOutput('exists', 'true');
+            } catch (e) {
+              if (e.status === 404) {
+                core.warning('Branch main-node20 does not exist yet — skipping sync.');
+                core.setOutput('exists', 'false');
+              } else {
+                throw e;
+              }
+            }
+
       - name: Guard — no open sync-conflict issues
+        if: steps.branch-check.outputs.exists == 'true'
         uses: actions/github-script@v7
         with:
           script: |
@@ -37,6 +59,7 @@ jobs:
             }
 
       - name: Checkout main-node20
+        if: steps.branch-check.outputs.exists == 'true'
         uses: actions/checkout@v4
         with:
           ref: main-node20
@@ -44,14 +67,17 @@ jobs:
           token: ${{ secrets.GITHUB_TOKEN }}
 
       - name: Configure git identity
+        if: steps.branch-check.outputs.exists == 'true'
         run: |
           git config user.name  'github-actions[bot]'
           git config user.email 'github-actions[bot]@users.noreply.github.com'
 
       - name: Fetch main
+        if: steps.branch-check.outputs.exists == 'true'
         run: git fetch origin main:main --tags
 
       - name: Detect new commits on main
+        if: steps.branch-check.outputs.exists == 'true'
         id: detect
         run: |
           new_commits=$(git log main-node20..main --oneline | wc -l | tr -d ' ')
@@ -59,7 +85,7 @@ jobs:
           echo "New commits on main since last sync: $new_commits"
 
       - name: Cherry-pick new commits
-        if: steps.detect.outputs.new_commits != '0'
+        if: steps.branch-check.outputs.exists == 'true' && steps.detect.outputs.new_commits != '0'
         id: cherry
         continue-on-error: true
         run: |
@@ -67,7 +93,7 @@ jobs:
           git cherry-pick main-node20..main
 
       - name: Open conflict issue if cherry-pick failed
-        if: steps.cherry.outcome == 'failure'
+        if: steps.branch-check.outputs.exists == 'true' && steps.cherry.outcome == 'failure'
         uses: actions/github-script@v7
         with:
           script: |
@@ -94,7 +120,7 @@ jobs:
             core.setFailed('Cherry-pick conflict; issue opened.');
 
       - name: Overwrite action.yml runtime line
-        if: steps.cherry.outcome == 'success'
+        if: steps.branch-check.outputs.exists == 'true' && steps.cherry.outcome == 'success'
         run: |
           if grep -qE 'using:\s*"?node24"?' action.yml; then
             sed -i.bak -E 's/using:\s*"?node24"?/using: "node20"/' action.yml
@@ -105,7 +131,7 @@ jobs:
           fi
 
       - name: Rebuild dist
-        if: steps.cherry.outcome == 'success'
+        if: steps.branch-check.outputs.exists == 'true' && steps.cherry.outcome == 'success'
         uses: actions/setup-node@v4
         with:
           node-version-file: .node-version
@@ -113,13 +139,13 @@ jobs:
           cache-dependency-path: package-lock.json
 
       - name: npm ci && build
-        if: steps.cherry.outcome == 'success'
+        if: steps.branch-check.outputs.exists == 'true' && steps.cherry.outcome == 'success'
         run: |
           npm ci
           npm run build
 
       - name: Commit and push
-        if: steps.cherry.outcome == 'success'
+        if: steps.branch-check.outputs.exists == 'true' && steps.cherry.outcome == 'success'
         run: |
           short_sha=$(git rev-parse --short main)
           git add action.yml dist/
