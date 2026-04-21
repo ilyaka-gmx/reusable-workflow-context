@@ -47,6 +47,9 @@ jobs:
     uses: my-org/shared/.github/workflows/reusable.yml@v2.5
     # no workflow_ref input needed
     <real-input-params>
+    permissions: # here or in the workflow level
+      contents: read
+      id-token: write
 
 
 ```
@@ -220,7 +223,7 @@ More examples in [docs/examples/](docs/examples/).
 ## Requirements & caveats
 
 - **Must be called from inside a reusable workflow** (one triggered by `workflow_call`). Called from a regular workflow, the action fails fast with a clear message.
-- **`permissions: id-token: write`** at the workflow or job level is required.
+- **`permissions: id-token: write`** at the workflow or job level is required. **Improtant**: both in the caller workflow and in the reusable workflow!
 - **Supported platforms:** GitHub.com, GitHub Enterprise Cloud (GHEC), GitHub Enterprise Server **3.5 or later** (OIDC with `job_workflow_ref` requires GHES 3.5+).
 - **Supported runners:** Linux / macOS / Windows; github-hosted or self-hosted; jobs in containers are fine.
 - **GHES users:** pin `@v1-node20` until your GHES runners support Node 24.
