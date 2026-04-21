@@ -1,0 +1,49 @@
+{
+  "name": "reusable-workflow-context",
+  "version": "1.0.0",
+  "description": "Expose a reusable workflow's own ref, SHA, repo, path, and runtime environment via the OIDC token.",
+  "private": true,
+  "main": "dist/index.js",
+  "engines": {
+    "node": ">=20"
+  },
+  "scripts": {
+    "build": "ncc build src/main.ts -o dist --source-map --license licenses.txt",
+    "lint": "eslint src __tests__ --max-warnings=0",
+    "format": "prettier --write \"src/**/*.ts\" \"__tests__/**/*.ts\"",
+    "format:check": "prettier --check \"src/**/*.ts\" \"__tests__/**/*.ts\"",
+    "typecheck": "tsc --noEmit",
+    "test": "vitest run",
+    "test:watch": "vitest",
+    "test:ci": "vitest run --coverage --reporter=verbose",
+    "ci-local": "npm run lint && npm run format:check && npm run typecheck && npm run test && npm run build && git diff --exit-code dist/"
+  },
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/ilyaka-gmx/reusable-workflow-context.git"
+  },
+  "keywords": [
+    "github-actions",
+    "reusable-workflow",
+    "oidc",
+    "workflow-context"
+  ],
+  "author": "ilyaka-gmx",
+  "license": "MIT",
+  "dependencies": {
+    "@actions/core": "^3.0.0"
+  },
+  "devDependencies": {
+    "@eslint/js": "^10.0.1",
+    "@types/node": "^25.6.0",
+    "@vercel/ncc": "^0.38.4",
+    "@vitest/coverage-v8": "^4.1.4",
+    "eslint": "^10.2.1",
+    "eslint-config-prettier": "^10.1.8",
+    "fast-check": "^4.7.0",
+    "prettier": "^3.8.3",
+    "typescript": "^6.0.3",
+    "typescript-eslint": "^8.58.2",
+    "vitest": "^4.1.4"
+  }
+}

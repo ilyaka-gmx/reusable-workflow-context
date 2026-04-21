@@ -1,0 +1,30 @@
+# Minimal reusable workflow that exposes its own identity to its jobs.
+#
+# The caller needs NOTHING special beyond:
+#   permissions:
+#     id-token: write
+#     contents: read
+# at the job or workflow level.
+
+name: reusable-example
+
+on:
+  workflow_call:
+
+permissions:
+  id-token: write
+  contents: read
+
+jobs:
+  print-context:
+    runs-on: ubuntu-latest
+    steps:
+      - id: ctx
+        uses: ilyaka-gmx/reusable-workflow-context@v1
+
+      - name: Print the reusable workflow's own identity
+        run: |
+          echo "repo   : ${{ steps.ctx.outputs.workflow_repository }}"
+          echo "path   : ${{ steps.ctx.outputs.workflow_path }}"
+          echo "ref    : ${{ steps.ctx.outputs.workflow_ref }}  (${{ steps.ctx.outputs.workflow_ref_type }})"
+          echo "sha    : ${{ steps.ctx.outputs.workflow_sha }}"

@@ -1,0 +1,45 @@
+name: Integration (matrix caller)
+
+on:
+  pull_request:
+    branches: [main, main-node20]
+  push:
+    branches: [main, main-node20]
+  schedule:
+    - cron: '0 7 * * 1'
+  workflow_dispatch:
+
+permissions:
+  contents: read
+  id-token: write
+
+concurrency:
+  group: integration-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  matrix:
+    name: ${{ matrix.os }} ${{ matrix.container && format('({0})', matrix.container) || '' }}
+    strategy:
+      fail-fast: false
+      max-parallel: 10
+      matrix:
+        os:
+          - ubuntu-latest
+          - ubuntu-22.04
+          - macos-latest
+          - macos-14
+          - windows-latest
+          - windows-2022
+        container: ['']
+        include:
+          - os: ubuntu-latest
+            container: 'alpine:latest'
+          - os: ubuntu-latest
+            container: 'debian:bookworm'
+          - os: ubuntu-latest
+            container: 'redhat/ubi9'
+    uses: ./.github/workflows/integration.yml
+    with:
+      os: ${{ matrix.os }}
+      container: ${{ matrix.container }}

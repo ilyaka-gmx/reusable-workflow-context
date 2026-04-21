@@ -1,0 +1,131 @@
+name: Sync main → main-node20
+
+on:
+  push:
+    branches: [main]
+  workflow_dispatch:
+
+permissions:
+  contents: write
+  issues: write
+
+concurrency:
+  group: sync-node20
+  cancel-in-progress: false
+
+jobs:
+  sync:
+    name: Cherry-pick main onto main-node20
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      - name: Guard — no open sync-conflict issues
+        uses: actions/github-script@v7
+        with:
+          script: |
+            const { data: issues } = await github.rest.issues.listForRepo({
+              owner: context.repo.owner,
+              repo: context.repo.repo,
+              state: 'open',
+              labels: 'sync-conflict',
+            });
+            if (issues.length > 0) {
+              core.setFailed(
+                `Open sync-conflict issue blocks this run: #${issues[0].number} (${issues[0].html_url}). ` +
+                `Resolve it before further syncs.`
+              );
+            }
+
+      - name: Checkout main-node20
+        uses: actions/checkout@v4
+        with:
+          ref: main-node20
+          fetch-depth: 0
+          token: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: Configure git identity
+        run: |
+          git config user.name  'github-actions[bot]'
+          git config user.email 'github-actions[bot]@users.noreply.github.com'
+
+      - name: Fetch main
+        run: git fetch origin main:main --tags
+
+      - name: Detect new commits on main
+        id: detect
+        run: |
+          new_commits=$(git log main-node20..main --oneline | wc -l | tr -d ' ')
+          echo "new_commits=$new_commits" >> "$GITHUB_OUTPUT"
+          echo "New commits on main since last sync: $new_commits"
+
+      - name: Cherry-pick new commits
+        if: steps.detect.outputs.new_commits != '0'
+        id: cherry
+        continue-on-error: true
+        run: |
+          set -e
+          git cherry-pick main-node20..main
+
+      - name: Open conflict issue if cherry-pick failed
+        if: steps.cherry.outcome == 'failure'
+        uses: actions/github-script@v7
+        with:
+          script: |
+            const { execSync } = require('node:child_process');
+            const status = execSync('git status --porcelain').toString();
+            try { execSync('git cherry-pick --abort'); } catch (e) { /* ignore */ }
+            const shortSha = execSync('git rev-parse --short main').toString().trim();
+            const runUrl = `${context.serverUrl}/${context.repo.owner}/${context.repo.repo}/actions/runs/${context.runId}`;
+            await github.rest.issues.create({
+              owner: context.repo.owner,
+              repo: context.repo.repo,
+              title: `[sync] cherry-pick conflict on main → main-node20 @ ${shortSha}`,
+              labels: ['sync-conflict', 'needs-manual-intervention'],
+              body: [
+                `The automated sync from \`main\` to \`main-node20\` hit a cherry-pick conflict.`,
+                ``,
+                `**Failing run:** ${runUrl}`,
+                ``,
+                '```',
+                status || '(no status output)',
+                '```',
+              ].join('\n'),
+            });
+            core.setFailed('Cherry-pick conflict; issue opened.');
+
+      - name: Overwrite action.yml runtime line
+        if: steps.cherry.outcome == 'success'
+        run: |
+          if grep -qE 'using:\s*"?node24"?' action.yml; then
+            sed -i.bak -E 's/using:\s*"?node24"?/using: "node20"/' action.yml
+            rm action.yml.bak
+            echo "action.yml switched to node20."
+          else
+            echo "action.yml already on node20 (no change)."
+          fi
+
+      - name: Rebuild dist
+        if: steps.cherry.outcome == 'success'
+        uses: actions/setup-node@v4
+        with:
+          node-version-file: .node-version
+          cache: npm
+          cache-dependency-path: package-lock.json
+
+      - name: npm ci && build
+        if: steps.cherry.outcome == 'success'
+        run: |
+          npm ci
+          npm run build
+
+      - name: Commit and push
+        if: steps.cherry.outcome == 'success'
+        run: |
+          short_sha=$(git rev-parse --short main)
+          git add action.yml dist/
+          if git diff --staged --quiet; then
+            echo "No staged changes after rebuild; pushing cherry-picked commits only."
+          else
+            git commit -m "chore(sync): node20 overlay for ${short_sha}"
+          fi
+          git push origin main-node20
