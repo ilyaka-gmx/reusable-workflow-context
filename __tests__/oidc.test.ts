@@ -44,8 +44,8 @@ describe('decodePayload — happy path', () => {
   it('ignores non-string values in the optional claim fields', () => {
     const token = makeJwt({
       iss: 'https://token.actions.githubusercontent.com',
-      job_workflow_ref: 42 as unknown as string,
-      job_workflow_sha: { bad: true } as unknown as string,
+      job_workflow_ref: 42,
+      job_workflow_sha: { bad: true },
     });
     const claims = decodePayload(token);
     expect(claims.job_workflow_ref).toBeUndefined();
