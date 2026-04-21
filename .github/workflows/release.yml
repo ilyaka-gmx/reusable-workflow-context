@@ -153,20 +153,20 @@ jobs:
           VERSION: ${{ needs.preflight.outputs.version }}
         run: |
           set -euo pipefail
-          git fetch origin main:main
-          git tag -a "v$VERSION" -m "Release v$VERSION" "main"
+          git fetch origin main
+          git tag -a "v$VERSION" -m "Release v$VERSION" "origin/main"
           major="v${VERSION%%.*}"
-          git tag -f "$major" "main"
+          git tag -f "$major" "origin/main"
       - name: Tag main-node20
         if: ${{ !inputs.skip_node20 }}
         env:
           VERSION: ${{ needs.preflight.outputs.version }}
         run: |
           set -euo pipefail
-          git fetch origin main-node20:main-node20
-          git tag -a "v$VERSION-node20" -m "Release v$VERSION-node20" "main-node20"
+          git fetch origin main-node20
+          git tag -a "v$VERSION-node20" -m "Release v$VERSION-node20" "origin/main-node20"
           major="v${VERSION%%.*}-node20"
-          git tag -f "$major" "main-node20"
+          git tag -f "$major" "origin/main-node20"
       - name: Push all tags atomically
         run: git push --atomic origin --tags --force
 
