@@ -60,7 +60,7 @@ jobs:
 
       - name: Checkout main-node20
         if: steps.branch-check.outputs.exists == 'true'
-        uses: actions/checkout@v4
+        uses: actions/checkout@v6
         with:
           ref: main-node20
           fetch-depth: 0
