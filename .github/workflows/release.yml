@@ -191,7 +191,7 @@ jobs:
             echo "EOF"
           } >> "$GITHUB_OUTPUT"
       - name: Create GitHub Release (node24)
-        uses: softprops/action-gh-release@v2
+        uses: softprops/action-gh-release@v3
         with:
           tag_name: v${{ needs.preflight.outputs.version }}
           name: v${{ needs.preflight.outputs.version }}
@@ -199,7 +199,7 @@ jobs:
           make_latest: true
       - name: Create GitHub Release (node20)
         if: ${{ !inputs.skip_node20 }}
-        uses: softprops/action-gh-release@v2
+        uses: softprops/action-gh-release@v3
         with:
           tag_name: v${{ needs.preflight.outputs.version }}-node20
           name: v${{ needs.preflight.outputs.version }}-node20
