@@ -83,6 +83,10 @@ jobs:
           new_commits=$(git log main-node20..main --oneline | wc -l | tr -d ' ')
           echo "new_commits=$new_commits" >> "$GITHUB_OUTPUT"
           echo "New commits on main since last sync: $new_commits"
+          if [[ "$new_commits" != "0" ]]; then
+            echo "Commits to be cherry-picked:"
+            git log main-node20..main --reverse --format="  %h  %s"
+          fi
 
       - name: Cherry-pick new commits
         if: steps.branch-check.outputs.exists == 'true' && steps.detect.outputs.new_commits != '0'
@@ -90,7 +94,22 @@ jobs:
         continue-on-error: true
         run: |
           set -e
-          git cherry-pick main-node20..main
+          # Cherry-pick each commit individually so we can skip already-applied ones.
+          commits=$(git log main-node20..main --reverse --format="%H")
+          for sha in $commits; do
+            if git cherry-pick "$sha"; then
+              echo "Applied $sha"
+            else
+              # If the working tree is clean the commit was already present — skip it.
+              if git diff --quiet && git diff --cached --quiet; then
+                echo "Skipping $sha (already applied / empty)"
+                git cherry-pick --skip
+              else
+                # Real conflict — let continue-on-error catch it.
+                exit 1
+              fi
+            fi
+          done
 
       - name: Open conflict issue if cherry-pick failed
         if: steps.branch-check.outputs.exists == 'true' && steps.cherry.outcome == 'failure'
