@@ -3,7 +3,20 @@
 All notable changes to `reusable-workflow-context` are documented here.
 This project follows [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
-## [1.0.0] — Unreleased
+## [1.0.1] — 2026-04-21
+
+### Changed
+
+- README: Added Note about Permissions in both caller and called workflows
+
+### Fixed
+
+- integration.yml: Removed duplicate bash assertion step.
+- sync-node20-branch.yml: Added branch existence guard to handle first-time setup.
+  Improved error handling for empty cherry-picks. Added commit list output for
+  visibility.
+
+## [1.0.0] — 2026-04-21
 
 ### Added
 
