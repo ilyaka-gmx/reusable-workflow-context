@@ -3,7 +3,7 @@
 All notable changes to `reusable-workflow-context` are documented here.
 This project follows [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
-## [1.0.0] — Unreleased
+## [0.1.0] — 2026-04-21
 
 ### Added
 

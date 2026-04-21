@@ -69,7 +69,7 @@ jobs:
             exit 1
           fi
           if ! grep -qE "^## \[?v?$VERSION\]?" CHANGELOG.md; then
-            echo "::error::CHANGELOG.md has no section for $VERSION."
+            echo "::error::CHANGELOG.md has no section for v$VERSION. Add a '## [${VERSION}]' (or '## v${VERSION}') section to CHANGELOG.md before releasing. See https://keepachangelog.com/en/1.1.0/ for the expected format."
             exit 1
           fi
 
