@@ -7,9 +7,12 @@ export default tseslint.config(
     ignores: ['dist/**', 'build/**', 'coverage/**', 'node_modules/**'],
   },
   js.configs.recommended,
-  ...tseslint.configs.recommendedTypeChecked,
-  ...tseslint.configs.stylisticTypeChecked,
   {
+    files: ['src/**/*.ts', '__tests__/**/*.ts'],
+    extends: [
+      ...tseslint.configs.recommendedTypeChecked,
+      ...tseslint.configs.stylisticTypeChecked,
+    ],
     languageOptions: {
       parserOptions: {
         projectService: true,

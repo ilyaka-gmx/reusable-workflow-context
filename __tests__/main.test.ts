@@ -153,6 +153,21 @@ describe('run — happy path', () => {
     await run();
     expect(io.getIDToken).toHaveBeenCalledWith(undefined);
   });
+
+  it('logs a one-line info headline with the resolved ref', async () => {
+    await run();
+    const lines = io.info.mock.calls.map((call) => String(call[0]));
+    expect(lines).toContain('Reusable workflow ref: v2.4.0 (tag)');
+  });
+
+  it('emits resolved fields at debug level (not info)', async () => {
+    await run();
+    const debugLines = io.debug.mock.calls.map((call) => String(call[0]));
+    expect(debugLines.some((l) => l.startsWith('repository :'))).toBe(true);
+    expect(debugLines.some((l) => l.startsWith('sha        :'))).toBe(true);
+    const infoLines = io.info.mock.calls.map((call) => String(call[0]));
+    expect(infoLines.some((l) => l.startsWith('repository :'))).toBe(false);
+  });
 });
 
 describe('run — fail-fast branches', () => {

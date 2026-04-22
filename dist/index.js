@@ -31026,7 +31026,7 @@ function notice(message, properties = {}) {
  * @param message info message
  */
 function info(message) {
-    process.stdout.write(message + os.EOL);
+    process.stdout.write(message + external_os_namespaceObject.EOL);
 }
 /**
  * Begin an output group.
@@ -31316,6 +31316,7 @@ async function run() {
             return;
         }
         emitOutputs(parsed, claims);
+        logResolution(parsed, claims);
     }
     catch (err) {
         setFailed(`Unexpected error: ${main_errorMessage(err)}`);
@@ -31363,6 +31364,20 @@ function emitOutputs(parsed, claims) {
     if (claims.job_workflow_sha === undefined || claims.job_workflow_sha.length === 0) {
         warning("'job_workflow_sha' claim absent; workflow_sha left empty.");
     }
+}
+/**
+ * Minimal positive-signal log: one info line visible in the step log,
+ * with full detail available at debug level (`ACTIONS_STEP_DEBUG=true`).
+ */
+function logResolution(parsed, claims) {
+    info(`Reusable workflow ref: ${parsed.ref} (${parsed.ref_type})`);
+    debug(`repository : ${parsed.repository}`);
+    debug(`path       : ${parsed.path}`);
+    debug(`ref        : ${parsed.ref}`);
+    debug(`full_ref   : ${parsed.ref_full}`);
+    debug(`ref_type   : ${parsed.ref_type}`);
+    debug(`sha        : ${claims.job_workflow_sha ?? '(absent)'}`);
+    debug(`raw claim  : ${claims.job_workflow_ref ?? ''}`);
 }
 function hostOf(url) {
     try {

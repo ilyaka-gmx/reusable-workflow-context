@@ -65,6 +65,7 @@ export async function run(): Promise<void> {
     }
 
     emitOutputs(parsed, claims);
+    logResolution(parsed, claims);
   } catch (err) {
     core.setFailed(`Unexpected error: ${errorMessage(err)}`);
   }
@@ -115,6 +116,22 @@ function emitOutputs(parsed: ParsedWorkflowRef, claims: OidcClaims): void {
   if (claims.job_workflow_sha === undefined || claims.job_workflow_sha.length === 0) {
     core.warning("'job_workflow_sha' claim absent; workflow_sha left empty.");
   }
+}
+
+/**
+ * Minimal positive-signal log: one info line visible in the step log,
+ * with full detail available at debug level (`ACTIONS_STEP_DEBUG=true`).
+ */
+function logResolution(parsed: ParsedWorkflowRef, claims: OidcClaims): void {
+  core.info(`Reusable workflow ref: ${parsed.ref} (${parsed.ref_type})`);
+
+  core.debug(`repository : ${parsed.repository}`);
+  core.debug(`path       : ${parsed.path}`);
+  core.debug(`ref        : ${parsed.ref}`);
+  core.debug(`full_ref   : ${parsed.ref_full}`);
+  core.debug(`ref_type   : ${parsed.ref_type}`);
+  core.debug(`sha        : ${claims.job_workflow_sha ?? '(absent)'}`);
+  core.debug(`raw claim  : ${claims.job_workflow_ref ?? ''}`);
 }
 
 function hostOf(url: string): string {
