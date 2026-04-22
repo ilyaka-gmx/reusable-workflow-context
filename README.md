@@ -1,5 +1,10 @@
 # `reusable-workflow-context`
 
+[![CI](https://github.com/ilyaka-gmx/reusable-workflow-context/actions/workflows/ci.yml/badge.svg?branch=main)](https://github.com/ilyaka-gmx/reusable-workflow-context/actions/workflows/ci.yml)
+[![Latest release](https://img.shields.io/github/v/release/ilyaka-gmx/reusable-workflow-context?sort=semver)](https://github.com/ilyaka-gmx/reusable-workflow-context/releases)
+[![License: MIT](https://img.shields.io/github/license/ilyaka-gmx/reusable-workflow-context)](./LICENSE)
+[![Node runtime](https://img.shields.io/badge/runtime-node24-brightgreen?logo=node.js)](./action.yml)
+
 > Expose a reusable workflow's own ref, SHA, repo, and path via the OIDC token — no inputs from the caller, no ref duplication.
 
 When you build a reusable workflow, the workflow itself cannot see which ref it was invoked at. The caller knows, but inside the reusable workflow `github.ref` refers to the **caller**, not to you. Workarounds force users to pass the ref as an input — duplicating information that the platform already has via hardcoded ref from the reusable workflow `uses:`.
