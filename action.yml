@@ -1,0 +1,42 @@
+name: Reusable Workflow Context
+description: >-
+  Expose a reusable workflow's own ref, SHA, repo, and path via the job's
+  OIDC token — no inputs from the caller, no ref duplication.
+author: ilyaka-gmx
+branding:
+  icon: git-branch
+  color: blue
+
+inputs:
+  audience:
+    description: >-
+      Custom audience for the OIDC token request. Rarely needed; leave blank to
+      use the runner's default audience.
+    required: false
+    default: ''
+
+outputs:
+  workflow_ref:
+    description: >-
+      Short ref name of the reusable workflow (e.g. `v2.4.0`, `main`,
+      or a SHA). `refs/tags/` and `refs/heads/` prefixes are stripped.
+  workflow_full_ref:
+    description: >-
+      Raw ref of the reusable workflow as emitted by GitHub, preserving any
+      `refs/tags/` or `refs/heads/` prefix.
+  workflow_ref_type:
+    description: One of `tag`, `branch`, `sha`.
+  workflow_sha:
+    description: Commit SHA of the reusable workflow file at the invoked ref.
+  workflow_repository:
+    description: Full `owner/repo` of the reusable workflow.
+  workflow_repository_owner:
+    description: Owner segment of `workflow_repository`.
+  workflow_path:
+    description: Path of the reusable workflow file within the repo (e.g. `.github/workflows/ci.yml`).
+  job_workflow_ref:
+    description: The raw `job_workflow_ref` OIDC claim value.
+
+runs:
+  using: node24
+  main: dist/index.js

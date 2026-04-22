@@ -1,0 +1,7 @@
+# Default owner for everything in the repo
+*                       @ilyaka-gmx
+
+# Workflows and release automation need extra scrutiny
+/.github/workflows/     @ilyaka-gmx
+/action.yml             @ilyaka-gmx
+/script/                @ilyaka-gmx

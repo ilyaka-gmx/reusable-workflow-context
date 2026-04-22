@@ -1,0 +1,34 @@
+# Adjust behavior based on the ref type of the reusable workflow:
+# - tag  -> this is a pinned release; production behavior
+# - branch -> likely @main or a dev branch; canary behavior
+# - sha -> explicit pin for a test; same as tag
+
+name: conditional-by-version
+
+on:
+  workflow_call:
+
+permissions:
+  id-token: write
+  contents: read
+
+jobs:
+  run:
+    runs-on: ubuntu-latest
+    steps:
+      - id: ctx
+        uses: ilyaka-gmx/reusable-workflow-context@v1
+
+      - name: Canary vs stable behavior
+        run: |
+          case "${{ steps.ctx.outputs.workflow_ref_type }}" in
+            tag|sha)
+              echo "Running stable ${{ steps.ctx.outputs.workflow_ref }}"
+              export CANARY_FEATURES=off
+              ;;
+            branch)
+              echo "Running canary from branch ${{ steps.ctx.outputs.workflow_ref }}"
+              export CANARY_FEATURES=on
+              ;;
+          esac
+          ./run-job.sh

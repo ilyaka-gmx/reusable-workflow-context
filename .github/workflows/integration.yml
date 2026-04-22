@@ -1,0 +1,105 @@
+name: Integration (reusable)
+
+on:
+  workflow_call:
+    inputs:
+      os:
+        type: string
+        required: true
+      container:
+        type: string
+        required: false
+        default: ''
+
+permissions:
+  contents: read
+  id-token: write
+
+jobs:
+  self-test:
+    name: Self-test on ${{ inputs.os }} ${{ inputs.container && format('({0})', inputs.container) || '' }}
+    runs-on: ${{ inputs.os }}
+    timeout-minutes: 15
+    container: ${{ inputs.container != '' && inputs.container || null }}
+    steps:
+      - uses: actions/checkout@v6
+
+      - id: ctx
+        name: Run the action under test
+        uses: ./
+
+      - name: Assert outputs (bash)
+        if: runner.os != 'Windows' && inputs.container != 'alpine:latest'
+        shell: bash
+        env:
+          WORKFLOW_REF: ${{ steps.ctx.outputs.workflow_ref }}
+          WORKFLOW_FULL_REF: ${{ steps.ctx.outputs.workflow_full_ref }}
+          WORKFLOW_REF_TYPE: ${{ steps.ctx.outputs.workflow_ref_type }}
+          WORKFLOW_SHA: ${{ steps.ctx.outputs.workflow_sha }}
+          WORKFLOW_REPO: ${{ steps.ctx.outputs.workflow_repository }}
+          WORKFLOW_OWNER: ${{ steps.ctx.outputs.workflow_repository_owner }}
+          WORKFLOW_PATH: ${{ steps.ctx.outputs.workflow_path }}
+          JOB_WORKFLOW_REF: ${{ steps.ctx.outputs.job_workflow_ref }}
+          EXPECTED_REPO: ${{ github.repository }}
+        run: |
+          set -euo pipefail
+          fail() { echo "::error::$1"; exit 1; }
+          [[ -n "$WORKFLOW_REF" ]]         || fail "workflow_ref is empty"
+          [[ -n "$WORKFLOW_FULL_REF" ]]    || fail "workflow_full_ref is empty"
+          [[ -n "$WORKFLOW_REF_TYPE" ]]    || fail "workflow_ref_type is empty"
+          [[ -n "$WORKFLOW_SHA" ]]         || fail "workflow_sha is empty"
+          [[ -n "$WORKFLOW_PATH" ]]        || fail "workflow_path is empty"
+          [[ -n "$JOB_WORKFLOW_REF" ]]     || fail "job_workflow_ref is empty"
+          [[ "$WORKFLOW_REPO" == "$EXPECTED_REPO" ]] \
+            || fail "workflow_repository '$WORKFLOW_REPO' != github.repository '$EXPECTED_REPO'"
+          [[ "$WORKFLOW_OWNER" == "${EXPECTED_REPO%%/*}" ]] \
+            || fail "workflow_repository_owner mismatch: got '$WORKFLOW_OWNER'"
+          echo "Assertions passed."
+
+      - name: Assert outputs (Alpine sh)
+        if: inputs.container == 'alpine:latest'
+        shell: sh
+        env:
+          WORKFLOW_REF: ${{ steps.ctx.outputs.workflow_ref }}
+          WORKFLOW_FULL_REF: ${{ steps.ctx.outputs.workflow_full_ref }}
+          WORKFLOW_REF_TYPE: ${{ steps.ctx.outputs.workflow_ref_type }}
+          WORKFLOW_SHA: ${{ steps.ctx.outputs.workflow_sha }}
+          WORKFLOW_REPO: ${{ steps.ctx.outputs.workflow_repository }}
+          WORKFLOW_OWNER: ${{ steps.ctx.outputs.workflow_repository_owner }}
+          WORKFLOW_PATH: ${{ steps.ctx.outputs.workflow_path }}
+          JOB_WORKFLOW_REF: ${{ steps.ctx.outputs.job_workflow_ref }}
+          EXPECTED_REPO: ${{ github.repository }}
+        run: |
+          set -euo pipefail
+          fail() { echo "::error::$1"; exit 1; }
+          [ -n "$WORKFLOW_REF" ]         || fail "workflow_ref is empty"
+          [ -n "$WORKFLOW_FULL_REF" ]    || fail "workflow_full_ref is empty"
+          [ -n "$WORKFLOW_REF_TYPE" ]    || fail "workflow_ref_type is empty"
+          [ -n "$WORKFLOW_SHA" ]         || fail "workflow_sha is empty"
+          [ -n "$WORKFLOW_PATH" ]        || fail "workflow_path is empty"
+          [ -n "$JOB_WORKFLOW_REF" ]     || fail "job_workflow_ref is empty"
+          [ "$WORKFLOW_REPO" = "$EXPECTED_REPO" ] \
+            || fail "workflow_repository '$WORKFLOW_REPO' != github.repository '$EXPECTED_REPO'"
+          [ "$WORKFLOW_OWNER" = "${EXPECTED_REPO%%/*}" ] \
+            || fail "workflow_repository_owner mismatch: got '$WORKFLOW_OWNER'"
+          echo "Assertions passed."          
+
+      - name: Assert outputs (PowerShell)
+        if: runner.os == 'Windows'
+        shell: pwsh
+        env:
+          WORKFLOW_REF: ${{ steps.ctx.outputs.workflow_ref }}
+          WORKFLOW_REPO: ${{ steps.ctx.outputs.workflow_repository }}
+          WORKFLOW_SHA: ${{ steps.ctx.outputs.workflow_sha }}
+          JOB_WORKFLOW_REF: ${{ steps.ctx.outputs.job_workflow_ref }}
+          EXPECTED_REPO: ${{ github.repository }}
+        run: |
+          $ErrorActionPreference = 'Stop'
+          function Fail($msg) { Write-Host "::error::$msg"; exit 1 }
+          if (-not $env:WORKFLOW_REF)        { Fail "workflow_ref is empty" }
+          if (-not $env:WORKFLOW_SHA)        { Fail "workflow_sha is empty" }
+          if (-not $env:JOB_WORKFLOW_REF)    { Fail "job_workflow_ref is empty" }
+          if ($env:WORKFLOW_REPO -ne $env:EXPECTED_REPO) {
+            Fail "workflow_repository '$env:WORKFLOW_REPO' != github.repository '$env:EXPECTED_REPO'"
+          }
+          Write-Host "Assertions passed."

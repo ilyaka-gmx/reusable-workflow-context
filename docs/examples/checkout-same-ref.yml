@@ -1,0 +1,32 @@
+# Check out the reusable workflow's OWN repo at its OWN ref.
+#
+# This is the canonical use case: you have helper scripts or config
+# living next to the reusable workflow, and you want to load them at
+# the same version as the workflow itself — without the caller having
+# to pass the ref in.
+
+name: checkout-same-ref
+
+on:
+  workflow_call:
+
+permissions:
+  id-token: write
+  contents: read
+
+jobs:
+  use-shared-scripts:
+    runs-on: ubuntu-latest
+    steps:
+      - id: ctx
+        uses: ilyaka-gmx/reusable-workflow-context@v1
+
+      - name: Check out the reusable workflow's repo at its own ref
+        uses: actions/checkout@v4
+        with:
+          repository: ${{ steps.ctx.outputs.workflow_repository }}
+          ref: ${{ steps.ctx.outputs.workflow_ref }}
+          path: _reusable
+
+      - name: Run a helper script pinned to the same version
+        run: ./_reusable/script/do-the-thing.sh

@@ -1,0 +1,120 @@
+name: Release
+
+on:
+  workflow_dispatch:
+    inputs:
+      version:
+        description: 'Semver version without leading v (e.g. 1.0.0)'
+        required: true
+        type: string
+
+permissions:
+  contents: write
+  id-token: write
+
+concurrency:
+  group: release
+  cancel-in-progress: false
+
+jobs:
+  preflight:
+    name: Pre-flight guards
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    outputs:
+      version: ${{ steps.validate.outputs.version }}
+    steps:
+      - uses: actions/checkout@v6
+        with:
+          fetch-depth: 0
+
+      - name: Validate actor and branch
+        env:
+          ACTOR: ${{ github.actor }}
+          REF: ${{ github.ref }}
+          ALLOWLIST: ${{ vars.RELEASE_ALLOWLIST }}
+        run: |
+          set -euo pipefail
+          if [[ "$REF" != "refs/heads/main" ]]; then
+            echo "::error::release.yml must be dispatched from the 'main' branch (got $REF)."
+            exit 1
+          fi
+          if [[ -n "${ALLOWLIST:-}" ]]; then
+            if ! echo ",$ALLOWLIST," | grep -q ",$ACTOR,"; then
+              echo "::error::Actor '$ACTOR' is not in RELEASE_ALLOWLIST."
+              exit 1
+            fi
+          else
+            echo "::warning::RELEASE_ALLOWLIST variable is unset; skipping actor check."
+          fi
+
+      - name: Validate version input
+        id: validate
+        env:
+          VERSION: ${{ inputs.version }}
+        run: |
+          set -euo pipefail
+          if [[ ! "$VERSION" =~ ^[0-9]+\.[0-9]+\.[0-9]+$ ]]; then
+            echo "::error::'version' must be MAJOR.MINOR.PATCH (got '$VERSION')."
+            exit 1
+          fi
+          echo "version=$VERSION" >> "$GITHUB_OUTPUT"
+          if git rev-parse --verify "v$VERSION" >/dev/null 2>&1; then
+            echo "::error::Tag v$VERSION already exists."
+            exit 1
+          fi
+
+      - uses: actions/setup-node@v6
+        with:
+          node-version-file: .node-version
+          cache: npm
+          cache-dependency-path: package-lock.json
+
+      - name: Verify dist matches a fresh build on main
+        run: |
+          npm ci
+          npm run build
+          git diff --exit-code dist/
+
+  tag-and-push:
+    name: Tag and push
+    needs: preflight
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      - uses: actions/checkout@v6
+        with:
+          fetch-depth: 0
+          token: ${{ secrets.GITHUB_TOKEN }}
+      - name: Configure git identity
+        run: |
+          git config user.name  'github-actions[bot]'
+          git config user.email 'github-actions[bot]@users.noreply.github.com'
+      - name: Tag main
+        env:
+          VERSION: ${{ needs.preflight.outputs.version }}
+        run: |
+          set -euo pipefail
+          git fetch origin main
+          git tag -a "v$VERSION" -m "Release v$VERSION" "origin/main"
+          major="v${VERSION%%.*}"
+          git tag -f "$major" "origin/main"
+      - name: Push tags
+        run: git push --atomic origin --tags --force
+
+  github-release:
+    name: Publish GitHub Release
+    needs: [preflight, tag-and-push]
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    steps:
+      - uses: actions/checkout@v6
+        with:
+          fetch-depth: 0
+      - name: Create GitHub Release
+        uses: softprops/action-gh-release@v3
+        with:
+          tag_name: v${{ needs.preflight.outputs.version }}
+          name: v${{ needs.preflight.outputs.version }}
+          generate_release_notes: true
+          make_latest: true
