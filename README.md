@@ -1,9 +1,9 @@
 # `reusable-workflow-context`
 
-[CI](https://github.com/ilyaka-gmx/reusable-workflow-context/actions/workflows/ci.yml)
-[Latest release](https://github.com/ilyaka-gmx/reusable-workflow-context/releases)
-[License: MIT](./LICENSE)
-[Node runtime](./action.yml)
+[![CI](https://github.com/ilyaka-gmx/reusable-workflow-context/actions/workflows/ci.yml/badge.svg?branch=main)](https://github.com/ilyaka-gmx/reusable-workflow-context/actions/workflows/ci.yml)
+[![Latest release](https://img.shields.io/github/v/release/ilyaka-gmx/reusable-workflow-context?sort=semver)](https://github.com/ilyaka-gmx/reusable-workflow-context/releases)
+[![License: MIT](https://img.shields.io/github/license/ilyaka-gmx/reusable-workflow-context)](./LICENSE)
+[![Node runtime](https://img.shields.io/badge/runtime-node24-brightgreen?logo=node.js)](./action.yml)
 
 > Expose a reusable workflow's own ref, SHA, repo, and path via the OIDC token — no inputs from the caller, no ref duplication.
 
@@ -18,14 +18,19 @@ This action reads the job's OIDC token and extracts the authoritative `job_workf
 
 ## Without vs. with this action
 
+<table>
+<tr>
+<th width="50%">❌ Without this action</th>
+<th width="50%">✅ With this action</th>
+</tr>
 
-| ❌ Without this action | ✅ With this action |
-| --------------------- | ------------------ |
-
-
-
-
-**Caller workflow — must pass the ref explicitlyCaller workflow — nothing extra needed**
+<!-- Row 1: Caller workflow -->
+<tr>
+<td><b>Caller workflow — must pass the ref explicitly</b></td>
+<td><b>Caller workflow — nothing extra needed</b></td>
+</tr>
+<tr>
+<td>
 
 ```yaml
 # caller.yml
@@ -33,11 +38,12 @@ jobs:
   call:
     uses: my-org/shared/.github/workflows/reusable.yml@v2.5
     with:
-      workflow_ref: v2.5  # ← manual, duplicates "uses" ref
+      workflow_ref: v2.5   # ← manual, duplicates "uses" ref
       <other-real-input-params>
 ```
 
-
+</td>
+<td>
 
 ```yaml
 # caller.yml
@@ -53,11 +59,16 @@ jobs:
 
 ```
 
+</td>
+</tr>
 
-
-
-
-**Inside the reusable workflow — reads caller-supplied inputInside the reusable workflow — reads from OIDC token**
+<!-- Row 2: Inside the reusable workflow -->
+<tr>
+<td><b>Inside the reusable workflow — reads caller-supplied input</b></td>
+<td><b>Inside the reusable workflow — reads from OIDC token</b></td>
+</tr>
+<tr>
+<td>
 
 ```yaml
 # reusable.yml
@@ -78,7 +89,8 @@ jobs:
           ref: ${{ inputs.workflow_ref }}   
 ```
 
-
+</td>
+<td>
 
 ```yaml
 # reusable.yml
@@ -101,7 +113,9 @@ jobs:
           ref: ${{ steps.ctx.outputs.workflow_ref }}  # ← authoritative
 ```
 
-
+</td>
+</tr>
+</table>
 
 ## Quick start
 
@@ -133,26 +147,22 @@ jobs:
 
 All outputs are strings. An empty string means "not available" (e.g. `workflow_sha` when the `job_workflow_sha` claim is absent).
 
-
-| Output                      | Example                                                    | Description                                        |
-| --------------------------- | ---------------------------------------------------------- | -------------------------------------------------- |
-| `workflow_ref`              | `v2.4.0`                                                   | Short ref: `refs/tags/` and `refs/heads/` stripped |
-| `workflow_full_ref`         | `refs/tags/v2.4.0`                                         | Raw ref including any `refs/…` prefix              |
-| `workflow_ref_type`         | `tag`                                                      | One of `tag`, `branch`, `sha`                      |
-| `workflow_sha`              | `deadbeef…`                                                | Commit SHA of the reusable workflow file           |
-| `workflow_repository`       | `my-org/my-repo`                                           | Full `owner/repo`                                  |
-| `workflow_repository_owner` | `my-org`                                                   | Owner only                                         |
-| `workflow_path`             | `.github/workflows/ci.yml`                                 | Workflow file path                                 |
-| `job_workflow_ref`          | `my-org/my-repo/.github/workflows/ci.yml@refs/tags/v2.4.0` | Raw OIDC claim                                     |
-
+| Output                      | Example                                                     | Description                                        |
+| --------------------------- | ----------------------------------------------------------- | -------------------------------------------------- |
+| `workflow_ref`              | `v2.4.0`                                                    | Short ref: `refs/tags/` and `refs/heads/` stripped |
+| `workflow_full_ref`         | `refs/tags/v2.4.0`                                          | Raw ref including any `refs/…` prefix              |
+| `workflow_ref_type`         | `tag`                                                       | One of `tag`, `branch`, `sha`                      |
+| `workflow_sha`              | `deadbeef…`                                                 | Commit SHA of the reusable workflow file           |
+| `workflow_repository`       | `my-org/my-repo`                                            | Full `owner/repo`                                  |
+| `workflow_repository_owner` | `my-org`                                                    | Owner only                                         |
+| `workflow_path`             | `.github/workflows/ci.yml`                                  | Workflow file path                                 |
+| `job_workflow_ref`          | `my-org/my-repo/.github/workflows/ci.yml@refs/tags/v2.4.0`  | Raw OIDC claim                                     |
 
 ## Inputs
-
 
 | Input      | Type   | Default | Description                                                                                                 |
 | ---------- | ------ | ------- | ----------------------------------------------------------------------------------------------------------- |
 | `audience` | string | `''`    | Custom audience (`aud` claim) for the OIDC token request. Leave blank to use the runner's default audience. |
-
 
 **When do you need `audience`?** Almost never. The default audience (the GitHub host URL) is what downstream trust policies — cloud providers, Vault, signing services — normally expect. Override it only when the verifier at the other end requires a specific `aud` value (e.g. a cloud OIDC trust policy that pins `aud` to a tenant-specific string).
 
@@ -208,7 +218,7 @@ More examples in [docs/examples/](docs/examples/).
 ## Requirements & caveats
 
 - **Must be called from inside a reusable workflow** (one triggered by `workflow_call`). Called from a regular workflow, the action fails fast with a clear message.
-- `**permissions: id-token: write`** at the workflow or job level is required. **Important:** both in the caller workflow and in the reusable workflow.
+- **`permissions: id-token: write`** at the workflow or job level is required. **Important:** both in the caller workflow and in the reusable workflow.
 - **Supported platforms:** GitHub.com, GitHub Enterprise Cloud (GHEC), GitHub Enterprise Server **3.5 or later** (OIDC with `job_workflow_ref` requires GHES 3.5+).
 - **Supported runners:** Linux / macOS / Windows; github-hosted or self-hosted; jobs in containers are fine.
 
@@ -263,13 +273,11 @@ The source under `src/` is unchanged by the script — only `action.yml` and `di
 
 Module responsibilities:
 
-
-| Module         | Role                               | Throws?                 |
-| -------------- | ---------------------------------- | ----------------------- |
-| `src/parse.ts` | Pure ref-claim parser              | Yes, on malformed input |
-| `src/oidc.ts`  | Token fetch + base64 decode        | Yes, on malformed token |
-| `src/main.ts`  | Orchestration + all error messages | Never (catches all)     |
-
+| Module | Role | Throws? |
+|---|---|---|
+| `src/parse.ts` | Pure ref-claim parser | Yes, on malformed input |
+| `src/oidc.ts` | Token fetch + base64 decode | Yes, on malformed token |
+| `src/main.ts` | Orchestration + all error messages | Never (catches all) |
 
 The action performs no outbound network I/O and depends only on the OIDC token delivered to the step by the runner. There are no hardcoded hostnames. The same `dist/index.js` runs unchanged on GitHub.com, GHEC, and GHES 3.5+.
 
