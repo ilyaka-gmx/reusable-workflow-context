@@ -1,11 +1,12 @@
 # Contributing to `reusable-workflow-context`
 
 Thanks for your interest. This guide covers the local developer setup, the CI
-gates your PR must pass, and the two-branch dual-tag model for releases.
+gates your PR must pass, and the release process.
 
 ## Prerequisites
 
-- Node.js 20.x (the `.node-version` file locks the dev Node version)
+- Node.js 24.x (the `.node-version` file locks the dev Node version to match
+  the runtime declared in `action.yml`)
 - `npm` 10+
 
 ## Local developer workflow
@@ -28,16 +29,7 @@ npm run ci-local
 
 ## Branch model
 
-- **`main`** is the primary development branch. Its `action.yml` declares
-  `runs.using: node24`.
-- **`main-node20`** is an auto-synced sibling: identical source, but its
-  `action.yml` declares `runs.using: node20` and `dist/` is rebuilt against
-  the Node 20 environment. It is produced by `.github/workflows/sync-node20-branch.yml`
-  on every push to `main`.
-
-**Do not open PRs against `main-node20` directly.** Make your change on `main`;
-the sync workflow will cherry-pick it. If a cherry-pick fails, the workflow
-opens an issue tagged `sync-conflict` and halts further syncs until resolved.
+`main` is the only long-lived branch. The action is published as `runs.using: node24`. Users on GHES instances with Node 20-only runners are expected to fork and run `script/repoint-to-node20.sh` (see the README for details); upstream does not publish a `-node20` variant.
 
 ## Opening a PR
 
@@ -50,7 +42,6 @@ opens an issue tagged `sync-conflict` and halts further syncs until resolved.
 5. Add or update tests when behaviour changes. The action is fail-fast by
    design: every failure path needs a test that asserts the exact
    `core.setFailed` message shape.
-6. Update `CHANGELOG.md` under the `Unreleased` section.
 
 ## Required status checks
 
@@ -78,18 +69,26 @@ block merge.
 
 ## Releasing (maintainer note)
 
-Releases are triggered manually via the `Release` workflow dispatch. The
-workflow enforces pre-flight guards and produces dual tags. The
-[`script/release.sh`](script/release.sh) helper can be run locally to verify
-all invariants before clicking dispatch.
+Releases are triggered manually via the `Release` workflow dispatch with a
+`MAJOR.MINOR.PATCH` version input. The workflow:
+
+1. Verifies the dispatcher is on `main` and (optionally) in
+   `vars.RELEASE_ALLOWLIST`.
+2. Verifies the tag doesn't already exist and that a fresh `npm run build`
+   leaves `dist/` clean.
+3. Creates `vX.Y.Z` and force-moves the floating `vX` major tag to `main`.
+4. Publishes a GitHub Release whose body is auto-generated from commits and
+   PRs merged since the previous tag (`generate_release_notes: true`).
+
+Because release notes are auto-generated, commit and PR titles are the source
+of truth: prefer descriptive, conventional-ish titles.
 
 Rollback, if a release is only partially tagged:
 
 ```bash
 git push --delete origin v<X.Y.Z>
-git push --delete origin v<X.Y.Z>-node20
-git tag -d v<X.Y.Z> v<X.Y.Z>-node20
-# Re-point v<major> floating tags if they were moved.
+git tag -d v<X.Y.Z>
+# Re-point the v<major> floating tag if it was moved.
 ```
 
 Then re-dispatch once the root cause is fixed.

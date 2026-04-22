@@ -112,7 +112,7 @@ jobs:
 </tr>
 </table>
 
-## Quick start (GitHub.com / GHEC)
+## Quick start
 
 ```yaml
 # .github/workflows/reusable.yml (in your shared-workflows repo)
@@ -138,16 +138,6 @@ jobs:
           path: _reusable
 ```
 
-## Quick start (GitHub Enterprise Server with Node 20 runner)
-
-For GHES with self-hosted runners that do not support Node 24. Pin to the `-node20` track:
-
-```yaml
-- uses: ilyaka-gmx/reusable-workflow-context@v1-node20
-```
-
-Everything else is identical. Once your GHES upgrade supports Node 24, you can switch back to `@v1`.
-
 ## Outputs
 
 All outputs are strings. An empty string means "not available" (e.g. `workflow_sha` when the `job_workflow_sha` claim is absent).
@@ -161,7 +151,7 @@ All outputs are strings. An empty string means "not available" (e.g. `workflow_s
 | `workflow_repository`       | `my-org/my-repo`                                            | Full `owner/repo`                                  |
 | `workflow_repository_owner` | `my-org`                                                    | Owner only                                         |
 | `workflow_path`             | `.github/workflows/ci.yml`                                  | Workflow file path                                 |
-| `job_workflow_ref`          | `my-org/my-repo/.github/workflows/ci.yml@refs/tags/v2.4.0` | Raw OIDC claim                                     |
+| `job_workflow_ref`          | `my-org/my-repo/.github/workflows/ci.yml@refs/tags/v2.4.0`  | Raw OIDC claim                                     |
 
 ## Inputs
 
@@ -223,12 +213,70 @@ More examples in [docs/examples/](docs/examples/).
 ## Requirements & caveats
 
 - **Must be called from inside a reusable workflow** (one triggered by `workflow_call`). Called from a regular workflow, the action fails fast with a clear message.
-- **`permissions: id-token: write`** at the workflow or job level is required. **Improtant**: both in the caller workflow and in the reusable workflow!
+- **`permissions: id-token: write`** at the workflow or job level is required. **Important:** both in the caller workflow and in the reusable workflow.
 - **Supported platforms:** GitHub.com, GitHub Enterprise Cloud (GHEC), GitHub Enterprise Server **3.5 or later** (OIDC with `job_workflow_ref` requires GHES 3.5+).
 - **Supported runners:** Linux / macOS / Windows; github-hosted or self-hosted; jobs in containers are fine.
-- **GHES users:** pin `@v1-node20` until your GHES runners support Node 24.
 
-## Security Safe
+## GHES with Node 20-only runners
+
+This action ships as `runs.using: node24`. If you run on a GHES instance whose bundled runner does not yet support Node 24, we do **not** publish a Node 20 variant — the maintenance cost of dual-publishing is not justified by the shrinking audience.
+
+Instead, fork this repository and repoint the runtime in your fork:
+
+```bash
+git clone https://github.com/<your-org>/reusable-workflow-context.git
+cd reusable-workflow-context
+./script/repoint-to-node20.sh    # rewrites action.yml and rebuilds dist/
+git push
+git tag v1-node20 && git push --tags
+```
+
+Then consume it from the fork:
+
+```yaml
+- uses: <your-org>/reusable-workflow-context@v1-node20
+```
+
+The source under `src/` is unchanged by the script — only `action.yml` and `dist/index.js` differ from upstream. Re-run the script after pulling new upstream commits.
+
+## How it works
+
+```
+┌──────────────────────────────────────────────┐
+│ 1. Pre-flight                                │
+│    - require ACTIONS_ID_TOKEN_REQUEST_URL    │
+│    - else platform-aware error + setFailed   │
+└──────────────────────────────────────────────┘
+                       │
+                       ▼
+┌──────────────────────────────────────────────┐
+│ 2. Fetch OIDC token via @actions/core        │
+└──────────────────────────────────────────────┘
+                       │
+                       ▼
+┌──────────────────────────────────────────────┐
+│ 3. base64-decode the JWT payload segment     │
+│    (no signature verify — runner is trusted) │
+└──────────────────────────────────────────────┘
+                       │
+                       ▼
+┌──────────────────────────────────────────────┐
+│ 4. Parse job_workflow_ref claim into fields  │
+│    owner/repo/path@ref → structured outputs  │
+└──────────────────────────────────────────────┘
+```
+
+Module responsibilities:
+
+| Module | Role | Throws? |
+|---|---|---|
+| `src/parse.ts` | Pure ref-claim parser | Yes, on malformed input |
+| `src/oidc.ts` | Token fetch + base64 decode | Yes, on malformed token |
+| `src/main.ts` | Orchestration + all error messages | Never (catches all) |
+
+The action performs no outbound network I/O and depends only on the OIDC token delivered to the step by the runner. There are no hardcoded hostnames. The same `dist/index.js` runs unchanged on GitHub.com, GHEC, and GHES 3.5+.
+
+## Security
 
 This action:
 
@@ -243,9 +291,9 @@ See [SECURITY.md](SECURITY.md) for vulnerability reporting.
 
 See [CONTRIBUTING.md](CONTRIBUTING.md). Notable rules:
 
-- PRs target `main`. The `main-node20` branch is auto-synced; do not PR it directly.
+- PRs target `main`.
 - Every PR runs lint, typecheck, test, build, and a strict `git diff --exit-code dist/` check.
-- All third-party GitHub Actions used in this repo are SHA-pinned; Dependabot keeps them current.
+- Third-party GitHub Actions in this repo are tracked by Dependabot; when practical, pin to a full commit SHA for supply-chain safety.
 
 ## License
 

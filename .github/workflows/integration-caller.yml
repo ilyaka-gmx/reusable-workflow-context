@@ -2,9 +2,9 @@ name: Integration (matrix caller)
 
 on:
   pull_request:
-    branches: [main, main-node20]
+    branches: [main]
   push:
-    branches: [main, main-node20]
+    branches: [main]
   schedule:
     - cron: '0 7 * * 1'
   workflow_dispatch:

@@ -9,3 +9,5 @@ coverage/
 .idea/
 .qodo/
 *.tsbuildinfo
+
+.local-dev/

@@ -4,8 +4,13 @@
 
 | Version | Supported |
 |---|---|
-| `v1.x` (node24 track — `v1`, `v1-node20`) | Yes |
+| `v1.x` (node24 runtime) | Yes |
 | Pre-1.0 / unreleased | No |
+
+Upstream publishes the `node24` runtime only. Consumers on GHES with
+Node 20-only bundled runners maintain their own fork (see the README's
+"GHES with Node 20-only runners" section); vulnerability fixes land on
+`main` and forks can pull and rebuild.
 
 ## Reporting a vulnerability
 
@@ -24,8 +29,8 @@ Please include:
 - The version tag (`v1.x.x` or commit SHA) you tested against
 
 You should receive an acknowledgement within 72 hours. Fixes for confirmed
-vulnerabilities will be released via the normal `v1` / `v1-node20` tag tracks,
-with a GitHub Security Advisory published simultaneously.
+vulnerabilities will be released via the normal `v1` tag track, with a GitHub
+Security Advisory published simultaneously.
 
 ## What this action does with secrets
 
@@ -54,7 +59,8 @@ If you have a scenario where you need a verified token downstream, use the
 ## Supply chain
 
 - Runtime deps pinned and limited to `@actions/core`.
-- All third-party GitHub Actions referenced in this repo's workflows are
-  SHA-pinned; Dependabot auto-PRs updates weekly.
+- Third-party GitHub Actions referenced in this repo's workflows are tracked
+  by Dependabot for weekly updates. Where practical, pin to a full commit SHA
+  for stronger supply-chain guarantees.
 - `dist/` is built via `@vercel/ncc` and committed to the repo. CI rejects
   PRs where `dist/` does not match a fresh build of source.
