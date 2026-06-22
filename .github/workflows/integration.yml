@@ -22,7 +22,7 @@ jobs:
     timeout-minutes: 15
     container: ${{ inputs.container != '' && inputs.container || null }}
     steps:
-      - uses: actions/checkout@v6
+      - uses: actions/checkout@v7
 
       - id: ctx
         name: Run the action under test
